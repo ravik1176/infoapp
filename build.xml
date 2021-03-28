@@ -1,0 +1,138 @@
+<?xml version="1.0"?>
+<project name="App-Info" default="main" basedir=".">
+    <!-- Sets variables which can later be used. -->
+    <!-- The value of a property is accessed via ${} -->
+    <property name="install.dir" location="tomcat" />
+    <property name="build.dir" location="target" />
+    <property name="artifact.dir" location="install" />
+    <property name="docker-staging.dir" location="staging/docker" />
+    <property name="project-name" value="app-info" />
+    <property name="version" value="10.1" />
+    <property name="archive" value="tar" />
+    <property name="realease" value="2020.11" />
+    <property name="ai.release" value="${env.DOC_USER}" />
+    <property name="ai.password" value="${env.DOC_PWD}" />
+    <property name="reg.name" value="${env.DOC_REG}" />
+    <property name="bucket.name" value="${env.BUCKET}" />
+
+    <!-- Deletes the existing build, docs and dist directory-->
+    <target name="clean">
+        <delete dir="${artifact.dir}" />
+	    <delete dir="${docker-staging.dir}/install" />
+    </target>
+	
+	<!-- ********************************************************************************************** -->
+    <!-- ********************     Push docker image to docker hub ****** push-docker-image  ********************** -->
+
+    <!-- Creates the artifact directory-->
+    <target name="makedir">
+        <mkdir dir="${artifact.dir}" />
+    </target>
+
+    <target name="copy-artifacts" depends="makedir">
+        <description>Copying the artifacts </description>
+        <copy todir="${artifact.dir}">
+            <fileset dir="${install.dir}">
+              <include name="**" />
+            </fileset>
+        </copy>
+       <copy todir="${artifact.dir}/webapps">
+            <fileset dir="${build.dir}">
+              <include name="App-Info-release/**" />
+            </fileset>
+        </copy>
+    </target>
+	
+	<!-- Copies install folder to staging/docker folder-->
+	
+    <target name="docker-staging" depends="copy-artifacts">
+        <description>Copying the install folder</description>
+        <copy todir="${docker-staging.dir}/install">
+            <fileset dir="${artifact.dir}">
+              <include name="**" />
+            </fileset>
+        </copy>
+    </target>
+	
+	<!-- Creates the docker images-->
+    
+    <target name="docker-image" depends="docker-staging">
+        <exec dir="${docker-staging.dir}" executable="docker">
+            <arg value="build"/>
+            <arg value="-t" />
+	    <arg value="${reg.name}/${project-name}:${version}" />
+	    <arg value="."/>
+        </exec>
+    </target>
+	
+    <!-- DOCKER LOGIN -->
+	
+    <target name="docker-login" depends="docker-image">
+        <exec dir="${docker-staging.dir}" executable="docker">
+            <arg value="login" />
+			<arg value="-u" />
+			<arg value="${ai.username}" />
+			<arg value="-p" />
+			<arg value="${ai.password}" />   
+        </exec>
+    </target>
+	
+	<!-- To push docker images-->
+	
+    <target name="push-docker-image" depends="docker-login">
+        <exec dir="${docker-staging.dir}" executable="docker">
+            <arg value="push" />
+            <arg value="${dockerhub-name}/${project-name}:${version}" /> 
+        </exec>
+    </target>
+	
+	<!-- ********************************************************************************************** -->
+    <!-- ********************     Push archive to artifacts(s3)***** push-archive  ********************** -->
+	
+	<!-- Archive the install directory-->
+	
+    <target name="archive" depends="copy-artifacts">
+	    <mkdir dir="${archive}" />
+	    <tar destfile="${archive}/${project-name}-${version}.tar" basedir="${artifact.dir}" />
+	    <gzip destfile="${archive}/${project-name}-${version}.tar.gz" src="${archive}/${project-name}-${version}.tar" />
+    </target>
+	
+	<!-- AWS LOGIN -->
+	
+    <target name="aws-accessid" depends="archive">
+        <exec dir="${docker-staging.dir}" executable="aws">
+	         <arg value="configure" />
+			 <arg value="set" />
+			 <arg value="aws_access_key_id" />
+			 <arg value="${ai.accesskeyid}" />
+	</exec>
+    </target>
+	
+    <target name="aws-login" depends="aws-accessid">
+        <exec dir="${docker-staging.dir}" executable="aws">
+		<arg value="configure" />
+			 <arg value="set" />
+			 <arg value="aws_secret_access_key" />
+			 <arg value="${ai.accesskeypassword}" />
+	</exec>
+    </target>
+	
+   <!--copying artifacts to s3-->
+   
+    <target name="push-archive" depends="aws-login">
+        <exec dir="${archive}" executable="aws">
+             <arg value="s3" />
+             <arg value="cp" />
+	         <arg value="${project-name}-${version}.tar.gz" />
+             <arg value="s3://${bucket.name}/${release}/" />
+        </exec>
+    </target>
+	
+	<!--  *****************************************************************************************-->
+	
+    <!-- Deletes the existing build, docs and dist directory-->
+    <target name="all-clean">
+        <delete dir="${build.dir}" />
+    </target>
+
+</project>
