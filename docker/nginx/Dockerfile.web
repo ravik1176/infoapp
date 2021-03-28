@@ -1,0 +1,8 @@
+FROM ubuntu:18.04
+
+MAINTAINER ravik1176@gmail.com
+
+RUN apt-get update -y && \
+    apt-get install nginx 
+
+EXPOSE 80

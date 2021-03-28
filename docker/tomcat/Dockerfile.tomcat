@@ -1,0 +1,26 @@
+FROM ubuntu:18.04
+
+ENV CR_HOME=/opt \
+    JAVA_HOME=$CR_HOME/java \
+    PATH=$JAVA_HOME/bin:$PATH \
+    JAVA_HOME=$APP_HOME/java \
+    PATH=$JAVA_HOME/bin:$PATH \
+    APP_HOME=$CR_HOME/app
+
+RUN mkdir $JAVA_HOME && \
+    mkdir $APP_HOME
+
+ADD https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.10%2B9/OpenJDK11U-jre_x64_linux_hotspot_11.0.10_9.tar.gz /tmp
+ADD https://downloads.apache.org/tomcat/tomcat-9/v9.0.44/bin/apache-tomcat-9.0.44.tar.gz /tmp
+
+RUN tar -xzf /tmp/OpenJDK11U-jre_x64_linux_hotspot_11.0.10_9.tar.gz -C $JAVA_HOME --strip-components=1 && \
+    tar -xzf /tmp/apache-tomcat-9.0.44.tar.gz -C $APP_HOME --strip-components=1 && \
+    chmod +x $APP_HOME/bin/*.sh
+
+COPY App-Info-release.war ${APP_HOME}/webapps/app.war
+
+WORKDIR $APP_HOME/bin
+
+EXPOSE 8080
+
+CMD ["./catalina.sh","run"]
