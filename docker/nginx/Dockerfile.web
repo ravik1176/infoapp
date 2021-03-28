@@ -5,4 +5,6 @@ MAINTAINER ravik1176@gmail.com
 RUN apt-get update -y && \
     apt-get install nginx 
 
+COPY default /etc/nginx/sites-available
+
 EXPOSE 80
